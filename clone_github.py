@@ -9,7 +9,7 @@ load_dotenv()
 
 TOKEN=os.environ.get('GITHUP_TOKEN')
 BASE_DIR = '/Volumes/SE/git'  # The directory to cd into before cloning
-PER_PAGE = 1200  # 每页最多 100 条
+PER_PAGE = 1500  # 每页最多 100 条
 HEADERS = {
     'Accept': 'application/vnd.github+json',
     'Authorization': f'token {TOKEN}',
