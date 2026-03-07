@@ -1,5 +1,6 @@
 import os
 import subprocess
+import argparse
 from bs4 import BeautifulSoup
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -17,13 +18,13 @@ HEADERS = {
 }
 
 
-def get_starred_repos():
+def get_starred_repos(session):
     page = 1
     starred = []
 
     while True:
         url = f'https://api.github.com/user/starred?per_page={PER_PAGE}&page={page}'
-        response = requests.get(url, headers=HEADERS)
+        response = session.get(url, headers=HEADERS)
         if response.status_code != 200:
             print(f"❌ 请求失败: {response.status_code} - {response.text}")
             break
@@ -47,11 +48,11 @@ def get_starred_repos():
     return starred
 
 
-def fetch_trending_repos():
+def fetch_trending_repos(session):
     url = f'https://github.com/trending'
     headers = {'User-Agent': 'Mozilla/5.0'}
 
-    response = requests.get(url, headers=headers)
+    response = session.get(url, headers=headers)
     if response.status_code != 200:
         print(f"Failed to fetch trending page: {response.status_code}")
         return []
@@ -88,7 +89,7 @@ def fetch_trending_repos():
     return repos
 
 
-def clone_repo(repo):
+def clone_repo(repo, use_proxy=False):
     name = repo['title'].split('/')[1]
     url = repo['repo_url']
     os.makedirs(BASE_DIR, exist_ok=True)
@@ -103,7 +104,17 @@ def clone_repo(repo):
         print(f"📥 Cloning: {name}")
         path = url.replace('https://github.com/', '').rstrip('/')
         git_url = f'git@github.com:{path}.git'
-        subprocess.run(['git', 'clone', git_url, name], cwd=BASE_DIR, check=True)
+        
+        # Prepare environment for git command
+        env = os.environ.copy()
+        if not use_proxy:
+            # Remove proxy settings if not using proxy
+            env.pop('HTTP_PROXY', None)
+            env.pop('HTTPS_PROXY', None)
+            env.pop('http_proxy', None)
+            env.pop('https_proxy', None)
+        
+        subprocess.run(['git', 'clone', git_url, name], cwd=BASE_DIR, env=env, check=True)
         print(f"✅ Done: {name}")
     except subprocess.CalledProcessError:
         print(f"❌ Failed to clone: {name}")
@@ -111,7 +122,18 @@ def clone_repo(repo):
 
 # Example usage
 if __name__ == "__main__":
-    star_repos = get_starred_repos()
+    parser = argparse.ArgumentParser(description='Clone GitHub starred and trending repositories')
+    parser.add_argument('--use-proxy', action='store_true', default=False,
+                        help='Use system proxy settings for both HTTP requests and git (default: False)')
+    args = parser.parse_args()
+    
+    # Create session with proxy settings
+    session = requests.Session()
+    session.trust_env = args.use_proxy
+    
+    print(f"🔧 Proxy mode: {'enabled' if args.use_proxy else 'disabled'}")
+    
+    star_repos = get_starred_repos(session)
     today_current_start = []
     exist_num = 1
     print(f"🌟 {len(star_repos)} starred repos")
@@ -126,9 +148,9 @@ if __name__ == "__main__":
             exist_num += 1
     print(f"🔁 Skipped (already exists): {exist_num}")
     with ThreadPoolExecutor(max_workers=4) as executor:
-        executor.map(clone_repo, today_current_start)
+        executor.map(lambda repo: clone_repo(repo, args.use_proxy), today_current_start)
 
-    repos = fetch_trending_repos()
+    repos = fetch_trending_repos(session)
     print(f"🌟 {len(repos)} trending repos")
     with ThreadPoolExecutor(max_workers=4) as executor:
-        executor.map(clone_repo, repos)
+        executor.map(lambda repo: clone_repo(repo, args.use_proxy), repos)
