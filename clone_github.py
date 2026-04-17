@@ -1,6 +1,7 @@
 import os
 import subprocess
 import argparse
+from pathlib import Path
 from bs4 import BeautifulSoup
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +13,7 @@ load_dotenv()
 
 TOKEN=os.environ.get('GITHUP_TOKEN')
 BASE_DIR = '/Volumes/SE/git'  # The directory to cd into before cloning
+VAULT_RAW_DIR = '/Users/caoxiaopeng/Desktop/GitHub 知识库/00_Raw'
 PER_PAGE = 1500  # 每页最多 100 条
 HEADERS = {
     'Accept': 'application/vnd.github+json',
@@ -22,6 +24,34 @@ REQUEST_TIMEOUT = (10, 30)  # (connect, read) seconds
 GIT_CLONE_TIMEOUT = 20 * 60  # seconds
 GIT_CLONE_ATTEMPTS = 2
 SSH_COMMAND = "ssh -o ConnectTimeout=30 -o ServerAliveInterval=20 -o ServerAliveCountMax=3"
+
+
+def copy_repo_markdown_to_vault(repo_name, repo_url, repo_path):
+    os.makedirs(VAULT_RAW_DIR, exist_ok=True)
+    repo_root = Path(repo_path)
+    md_files = list(repo_root.rglob('*.md'))
+    if not md_files:
+        print(f"📝 No markdown files found in: {repo_name}")
+        return
+
+    copied = 0
+    for md_file in md_files:
+        rel_path = md_file.relative_to(repo_root)
+        safe_rel = str(rel_path).replace(os.sep, '__')
+        target_name = f"{repo_name}__{safe_rel}"
+        target_path = Path(VAULT_RAW_DIR) / target_name
+
+        try:
+            content = md_file.read_text(encoding='utf-8', errors='ignore')
+            if content and not content.endswith('\n'):
+                content += '\n'
+            content += f"github url: {repo_url}\n"
+            target_path.write_text(content, encoding='utf-8')
+            copied += 1
+        except Exception as exc:
+            print(f"⚠️ Failed to copy markdown: {md_file} ({exc})")
+
+    print(f"📚 Copied {copied} markdown files for repo: {repo_name}")
 
 
 def get_starred_repos(session):
@@ -131,6 +161,7 @@ def clone_repo(repo, use_proxy=False, max_attempts=GIT_CLONE_ATTEMPTS):
                 check=True,
                 timeout=GIT_CLONE_TIMEOUT,
             )
+            copy_repo_markdown_to_vault(name, url, target_path)
             print(f"✅ Done: {name}")
             return
         except subprocess.TimeoutExpired:
