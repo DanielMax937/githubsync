@@ -13,7 +13,7 @@ load_dotenv()
 
 TOKEN=os.environ.get('GITHUP_TOKEN')
 BASE_DIR = '/Volumes/SE/git'  # The directory to cd into before cloning
-VAULT_RAW_DIR = '/Users/caoxiaopeng/Desktop/GitHub 知识库/00_Raw'
+VAULT_RAW_DIR = '/Volumes/SE/GitHub 知识库/00_Raw'
 PER_PAGE = 1500  # 每页最多 100 条
 HEADERS = {
     'Accept': 'application/vnd.github+json',

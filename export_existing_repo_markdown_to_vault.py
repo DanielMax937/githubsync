@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 REPO_BASE_DIR = "/Volumes/SE/git"
-VAULT_RAW_DIR = "/Users/caoxiaopeng/Desktop/GitHub 知识库/00_Raw"
+VAULT_RAW_DIR = "/Volumes/SE/GitHub 知识库/00_Raw"
 
 
 def infer_repo_url(repo_path: Path) -> str:
